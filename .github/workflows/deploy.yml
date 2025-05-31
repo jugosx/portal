@@ -17,7 +17,7 @@ jobs:
       uses: docker/setup-buildx-action@v3 # Configures Docker Buildx for efficient builds
 
     - name: Log in to Azure
-      uses: azure/login@v1 # Authenticates with Azure using the service principal credentials
+      uses: azure/login@v2 # Authenticates with Azure using the service principal credentials
       with:
         auth-type: IDENTITY
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
