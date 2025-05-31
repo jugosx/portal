@@ -1,34 +1,58 @@
-name: Deploy Vue Docker to Azure
+name: barep-prd-actions
 
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - main # Trigger on pushes to the main branch
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Uses the latest Ubuntu runner
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4 # Checks out your repository code
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v3 # Configures Docker Buildx for efficient builds
 
     - name: Log in to Azure
-      uses: azure/login@v1
+      uses: azure/login@v1 # Authenticates with Azure using the service principal credentials
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }} # This secret should contain the full JSON of your Azure Service Principal
 
-    - name: Build and push Docker image (optional, for ACR)
+    - name: Log in to Azure Container Registry (ACR)
+      uses: azure/docker-login@v1 # Authenticates with your specified Azure Container Registry
+      with:
+        login-server: barepfd-b3agdua3cvevhnhr.azurecr.io # Your ACR login server
+        username: ${{ secrets.ACR_USERNAME }} # ACR Username (e.g., from a Service Principal or Managed Identity)
+        password: ${{ secrets.ACR_PASSWORD }} # ACR Password (e.g., from a Service Principal or Managed Identity)
+        # Alternatively, if your ACR is public or allows anonymous pull, you might not need this.
+        # If using Managed Identity for App Service, ensure the App Service has pull permissions to ACR.
+
+    - name: Build and push Docker image to ACR
       run: |
-        docker build -t portal-app:latest .
-        docker tag portal-app:latest barepfd-b3agdua3cvevhnhr.azurecr.io/portal-app:latest
-        docker push barepfd-b3agdua3cvevhnhr.azurecr.io/portal-app:latest
+        # Define the image name and tag
+        IMAGE_NAME="portal-app"
+        ACR_LOGIN_SERVER="barepfd-b3agdua3cvevhnhr.azurecr.io"
+        IMAGE_TAG="${{ github.sha }}" # Using the Git commit SHA as the image tag for traceability
+
+        # Build the Docker image
+        echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+
+        # Tag the image for ACR
+        echo "Tagging image for ACR: ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
+        docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
+
+        # Push the image to ACR
+        echo "Pushing image to ACR: ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}"
+        docker push ${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${IMAGE_TAG}
 
     - name: Deploy to Azure Web App (Container)
-      uses: azure/webapps-deploy@v2
+      uses: azure/webapps-deploy@v3 # Using the latest version of the action
       with:
-        app-name: barep-prd
-        images: barepfd-b3agdua3cvevhnhr.azurecr.io/portal-app:latest
+        app-name: barep-prd # Your Azure App Service name
+        images: barepfd-b3agdua3cvevhnhr.azurecr.io/portal-app:${{ github.sha }} # Deploying the specific image tag from ACR
+        # If your ACR is private, you might need to explicitly specify the container-registry-url
+        # container-registry-url: barepfd-b3agdua3cvevhnhr.azurecr.io
