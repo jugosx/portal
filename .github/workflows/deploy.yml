@@ -19,7 +19,10 @@ jobs:
     - name: Log in to Azure
       uses: azure/login@v1 # Authenticates with Azure using the service principal credentials
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} # This secret should contain the full JSON of your Azure Service Principal
+        auth-type: IDENTITY
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        enable-AzPSSession: true
 
     - name: Log in to Azure Container Registry (ACR)
       uses: azure/docker-login@v1 # Authenticates with your specified Azure Container Registry
